@@ -1,1 +1,5 @@
 MNIST/*
+colab 50 epoch/*
+colab 5 epoch/*
+*.pt
+*.png
