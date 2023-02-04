@@ -23,6 +23,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.datasets as dataset
+import os
 
 
 # %%
@@ -30,23 +31,52 @@ import torchvision.datasets as dataset
 # code strongly based on:
 # https://colab.research.google.com/github/smartgeometry-ucl/dl4g/blob/master/autoencoder.ipynb#scrollTo=ztYkaqtAr_VZ
 
-def plot_losses(train_loss, val_loss):
+def show_image(img, name, save=True):
+    print('Original images')
+    npimg = img.cpu().detach().numpy()
+    # npimg = img.numpy() # old:
+    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+    plt.show()
+    if save:
+        plt.savefig(f"gt_img_{name}.png")
+
+
+
+def visualise_output(images, model, device, name, save=True):
+    print('Autoencoder reconstruction:')
+    with torch.no_grad():
+        images = images.to(device)
+        images = model(images)
+        images = images.cpu()
+        # images = to_img(images)
+        np_imagegrid = torchvision.utils.make_grid(
+            images[1:50], 10, 5).numpy()
+        plt.imshow(np.transpose(np_imagegrid, (1, 2, 0)))
+        plt.show()
+        if save:
+            plt.savefig(f"reconstructed_img_{name}.png")
+
+
+def plot_losses(train_loss, val_loss, name, save=True):
     epochs = range(1, len(train_loss) + 1)
     plt.plot(epochs, train_loss, '--', label='Training loss')
     plt.plot(epochs, val_loss, 'r', label='Validation loss')
-    plt.title('Training and validation loss')
+    plt.title(f'Training and validation loss - {name}')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
 
-    # plt.imsave('loss.png', plt.gcf())
+    if save:
+        plt.savefig(f"loss_{name}.png")
+
 
     plt.show()
 
 class Autoencoder(nn.Module):
-    def __init__(self):
+    def __init__(self, latent_dims=2):
         super(Autoencoder, self).__init__()
         self.c = 4
+        self.latent_dims = latent_dims
 
         # Encoder block
         self.conv1 = nn.Conv2d(
@@ -102,7 +132,7 @@ class Autoencoder(nn.Module):
 # %%
 
 
-def train(model, train_loader, val_loader, learning_rate, epoch, device):
+def train(model: Autoencoder, train_loader, val_loader, learning_rate, nb_epochs, device):
     model.train()
     criterion = nn.MSELoss()
 
@@ -115,7 +145,7 @@ def train(model, train_loader, val_loader, learning_rate, epoch, device):
     train_losses = []
     val_losses = []
 
-    for e in range(epoch):
+    for e in range(nb_epochs):
         running_loss = 0.0
 
         for i, data in enumerate(train_loader, 0):
@@ -151,12 +181,12 @@ def train(model, train_loader, val_loader, learning_rate, epoch, device):
         model.train()
         val_losses.append(val_loss / len(val_loader))
 
-        print(
-            f'Epoch: {e + 1}/{epoch} - Loss: {running_loss / len(train_loader)}')
+        print(f'Latent dimensions: {model.latent_dims} -  Epoch: {e + 1}/{nb_epochs} - Loss: {running_loss / len(train_loader)}')
 
     # </> end all epochs
 
-    plot_losses(train_losses, val_losses)
+    plot_losses(train_losses, val_losses, name=f'latent_dims_{model.latent_dims}')
+    torch.save(model.state_dict(), f'model_latent_dims_{model.latent_dims}.pt')
     return model
 
 
@@ -166,11 +196,7 @@ if __name__ == '__main__':
     else:
         device = 'cpu'
 
-    latent_dims = 10
-    num_epochs = 5
     batch_size = 128
-    learning_rate = 1e-3  # = 0.001
-
     mnist_train = dataset.MNIST(
         "./", train=True,
         transform=transforms.ToTensor(),
@@ -190,42 +216,28 @@ if __name__ == '__main__':
         batch_size=batch_size,
         shuffle=False)
 
-    model = Autoencoder().to(device)
-    model = train(
-        model,
-        train_loader,
-        val_loader,
-        learning_rate=learning_rate,
-        epoch=num_epochs,
-        device=device)
+   
 
-    model.eval()
+    for latent_dim in [2, 5, 10, 20, 50, 100]:
 
-    # def to_img(x):
-    #     x = 0.5 * (x + 1)
-    #     x = x.clamp(0, 1)
-    #     return x
+        num_epochs = 5
+        learning_rate = 1e-3  # = 0.001
 
-    def show_image(img):
-        npimg = img.numpy()
-        plt.imshow(np.transpose(npimg, (1, 2, 0)))
+        model = Autoencoder(latent_dim).to(device)
+        model = train(
+            model,
+            train_loader,
+            val_loader,
+            learning_rate=learning_rate,
+            nb_epochs=num_epochs,
+            device=device)
 
-    def visualise_output(images, model):
-        with torch.no_grad():
-            images = images.to(device)
-            images = model(images)
-            images = images.cpu()
-            # images = to_img(images)
-            np_imagegrid = torchvision.utils.make_grid(
-                images[1:50], 10, 5).numpy()
-            plt.imshow(np.transpose(np_imagegrid, (1, 2, 0)))
-            plt.show()
+        model.eval()
+        images, labels = next(iter(val_loader))
+        show_image(torchvision.utils.make_grid(images[1:50], 10, 5), f"latent_dim_{latent_dim}.png")
+        
+        visualise_output(images, model, device, f"img_latent_dim_{latent_dim}.png")
+        import time
+        time.sleep(5)
 
-    images, labels = next(iter(val_loader))
-
-    print('Original images')
-    show_image(torchvision.utils.make_grid(images[1:50], 10, 5))
-    plt.show()
-    print('Autoencoder reconstruction:')
-    visualise_output(images, model)
-# %%
+# %%    
