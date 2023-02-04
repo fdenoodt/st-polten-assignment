@@ -37,9 +37,9 @@ def show_image(img, name, save=True):
     npimg = img.cpu().detach().numpy()
     # npimg = img.numpy() # old:
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
-    plt.show()
     if save:
         plt.savefig(f"gt_img_{name}.png")
+    plt.show()
 
 
 
@@ -53,9 +53,9 @@ def visualise_output(images, model, device, name, save=True):
         np_imagegrid = torchvision.utils.make_grid(
             images[1:50], 10, 5).numpy()
         plt.imshow(np.transpose(np_imagegrid, (1, 2, 0)))
-        plt.show()
         if save:
             plt.savefig(f"reconstructed_img_{name}.png")
+        plt.show()
 
 
 def plot_losses(train_loss, val_loss, name, save=True):
@@ -167,7 +167,7 @@ if __name__ == '__main__':
 
     for latent_dim in [2, 5, 10, 20, 50, 100]:
 
-        num_epochs = 5
+        num_epochs = 50
         learning_rate = 1e-3  # = 0.001
 
         model = Autoencoder(latent_dim).to(device)
