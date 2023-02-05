@@ -96,9 +96,11 @@ if __name__ == '__main__':
     decoder.eval()
 
     encs = torch.randn(1, latent_dim).to(device)
-    encs[0][0] = -100
-    encs[0][0] = 0.7
+    encs[0][0] = -0.9
+    encs[0][0] = 1
 
     imgs = decoder(encs)
 
     show_image(imgs[0], 'Generated Image', save=False)
+
+# %%
