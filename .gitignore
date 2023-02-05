@@ -4,3 +4,4 @@ colab 5 epoch/*
 *.pt
 *.png
 *.pyc
+data/*
