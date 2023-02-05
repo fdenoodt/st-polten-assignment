@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class Autoencoder1(nn.Module):
+class Autoencoder(nn.Module):
     def __init__(self, latent_dims=2):
         super(Autoencoder, self).__init__()
         self.c = 4
