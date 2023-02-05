@@ -17,7 +17,9 @@ if __name__ == '__main__':
     else:
         device = 'cpu'
 
-    batch_size = 128
+    logs_path = "logs/"
+
+    batch_size =128 * 2 * 2 * 2 # 1024
     mnist_val = dataset.MNIST(
         "./", train=False,
         transform=transforms.ToTensor(),
@@ -42,14 +44,14 @@ if __name__ == '__main__':
 
     model.eval()
     show_image(torchvision.utils.make_grid(
-        images[1:50], 10, 5), f"latent_dim_{latent_dim}.png", save=False)
+        images[1:50], 10, 5), f"{logs_path}/latent_dim_{latent_dim}.png", save=False)
 
-    visualise_output(images, model, device, f"img_latent_dim_{latent_dim}.png", save=False)
+    visualise_output(images, model, device, f"{logs_path}/img_latent_dim_{latent_dim}.png", save=False)
 
     # %%
 
     encoder = Encoder(latent_dim).to(device)
-    encoder.load_state_dict(torch.load(f'model_latent_dims_{latent_dim}.pt'))
+    encoder.load_state_dict(torch.load(f'{logs_path}/model_latent_dims_{latent_dim}.pt'))
     encoder.eval()
     # Obtain the hidden representation
     hidden_representations = encoder(images)
@@ -92,12 +94,17 @@ if __name__ == '__main__':
     # %%
 
     decoder = Decoder(latent_dim).to(device)
-    decoder.load_state_dict(torch.load(f'model_latent_dims_{latent_dim}.pt'))
+    decoder.load_state_dict(torch.load(f'{logs_path}/model_latent_dims_{latent_dim}.pt'))
     decoder.eval()
 
     encs = torch.randn(1, latent_dim).to(device)
-    encs[0][0] = -0.9
-    encs[0][0] = 1
+    # (4, 3)
+    # encs[0][0] = 4
+    # encs[0][0] = 3
+
+    encs[0][0] = -.09
+    encs[0][0] = -3
+
 
     imgs = decoder(encs)
 
