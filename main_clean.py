@@ -26,11 +26,17 @@ import torchvision.datasets as dataset
 import os
 from architectures import Autoencoder
 
+import random
+random.seed(42)
+
+log_path = "logs/"
+
 
 # %%
 
 # code strongly based on:
 # https://colab.research.google.com/github/smartgeometry-ucl/dl4g/blob/master/autoencoder.ipynb#scrollTo=ztYkaqtAr_VZ
+
 
 def show_image(img, name, save=True):
     print('Original images')
@@ -38,7 +44,7 @@ def show_image(img, name, save=True):
     # npimg = img.numpy() # old:
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     if save:
-        plt.savefig(f"gt_img_{name}.png")
+        plt.savefig(f"{log_path}/gt_img_{name}.png")
     plt.show()
 
 
@@ -54,7 +60,7 @@ def visualise_output(images, model, device, name, save=True):
             images[1:50], 10, 5).numpy()
         plt.imshow(np.transpose(np_imagegrid, (1, 2, 0)))
         if save:
-            plt.savefig(f"reconstructed_img_{name}.png")
+            plt.savefig(f"{log_path}/reconstructed_img_{name}.png")
         plt.show()
 
 
@@ -68,7 +74,7 @@ def plot_losses(train_loss, val_loss, name, save=True):
     plt.legend()
 
     if save:
-        plt.savefig(f"loss_{name}.png")
+        plt.savefig(f"{log_path}/loss_{name}.png")
 
 
     plt.show()
@@ -87,7 +93,8 @@ def train(model: Autoencoder, train_loader, val_loader, learning_rate, nb_epochs
     optimizer = torch.optim.Adam(
         params=model.parameters(),
         lr=learning_rate,
-        weight_decay=1e-5)
+        weight_decay=1e-5
+        )
 
     train_losses = []
     val_losses = []
@@ -133,7 +140,7 @@ def train(model: Autoencoder, train_loader, val_loader, learning_rate, nb_epochs
     # </> end all epochs
 
     plot_losses(train_losses, val_losses, name=f'latent_dims_{model.latent_dims}')
-    # torch.save(model.state_dict(), f'model_latent_dims_{model.latent_dims}.pt')
+    torch.save(model.state_dict(), f'{log_path}/model_latent_dims_{model.latent_dims}.pt')
     return model
 
 
@@ -143,7 +150,7 @@ if __name__ == '__main__':
     else:
         device = 'cpu'
 
-    batch_size = 128
+    batch_size = 128 * 2 * 2 # 512
     mnist_train = dataset.MNIST(
         "./", train=True,
         transform=transforms.ToTensor(),
