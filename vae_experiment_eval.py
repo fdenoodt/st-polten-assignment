@@ -51,7 +51,7 @@ if __name__ == '__main__':
     #     images[1:50], 10, 5), f"{logs_path}/LATENT_DIM_{LATENT_DIM}.png", save=False)
 
     visualise_output(images, MODEL, device,
-                     f"{logs_path}/img_LATENT_DIM_{LATENT_DIM}.png", save=False)
+                     f"{logs_path}/img_LATENT_DIM_{LATENT_DIM}.png", save=True)
 
     encoder = MODEL.decoder_cnn
     mu, log_var = MODEL.encode(images)
@@ -62,8 +62,12 @@ if __name__ == '__main__':
     hidden_representations = hidden_representations.cpu().detach().numpy()
     labels = labels.cpu().detach().numpy().tolist()
 
-    tsne = TSNE(init='random', n_components=2, random_state=0,
-                learning_rate=200)  # enter init and lr to avoid warnings
+    hidden_representations = np.reshape(hidden_representations, (batch_size, -1))
+
+    # flatten the hidden representations
+    tsne = TSNE(init='random', n_components=2,
+                random_state=0, learning_rate=200)
+    
     hidden_representations_2d = tsne.fit_transform(hidden_representations)
 
     tsne = TSNE(init='random', n_components=2,
@@ -72,7 +76,7 @@ if __name__ == '__main__':
 
     colors = ['red', 'blue', 'green', 'yellow', 'purple',
               'pink', 'cyan', 'black', 'magenta', 'orange']
-    
+
     fig, ax = plt.subplots()
     for label in np.unique(labels):
         mask = labels == label
@@ -81,4 +85,5 @@ if __name__ == '__main__':
 
     # Add a legend
     ax.legend()
+    plt.savefig(f"{logs_path}/tsne_LATENT_DIM_{LATENT_DIM}.png")
     plt.show()

@@ -1,3 +1,4 @@
+# %%
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -30,13 +31,12 @@ def show_image(img, name, save=True):
     plt.show()
 
 
-
 def visualise_output(images, model, device, name, save=True):
     print('Autoencoder reconstruction:')
     with torch.no_grad():
         images = images.to(device)
         images, _, _, _ = model(images)
-        
+
         images = images.cpu()
         # images = to_img(images)
         np_imagegrid = torchvision.utils.make_grid(
@@ -45,7 +45,6 @@ def visualise_output(images, model, device, name, save=True):
         if save:
             plt.savefig(f"{LOG_PATH}/reconstructed_img_{name}.png")
         plt.show()
-
 
 
 def plot_losses(train_loss, val_loss, name, save=True):
@@ -82,8 +81,15 @@ class VanillaVAE(nn.Module):
             nn.ReLU(True)
         )
 
-        # self.fc_mu = nn.Linear(hidden_dims[-1], latent_dim)
-        # self.fc_var = nn.Linear(hidden_dims[-1], latent_dim)
+        # In: [b, 32, 3, 3]
+        # Out: [b, latent_dim, 3, 3]
+        self.cnn_mu = nn.Sequential(
+            nn.Conv2d(32, latent_dim, 3, stride=1, padding=1),
+            nn.ReLU(True))
+        
+        self.cnn_var = nn.Sequential(
+            nn.Conv2d(32, latent_dim, 3, stride=1, padding=1),
+            nn.ReLU(True))
 
         self.flatten = nn.Flatten(start_dim=1)
         self.fc_mu = nn.Sequential(
@@ -98,8 +104,9 @@ class VanillaVAE(nn.Module):
         )
 
         # Build Decoder
-
         self.decoder_cnn = nn.Sequential(
+            nn.ConvTranspose2d(latent_dim, 32, 3, stride=1, padding=1), #added
+
             nn.ConvTranspose2d(32, 16, 3, stride=2, output_padding=0),
             nn.BatchNorm2d(16),
             nn.ReLU(True),
@@ -119,8 +126,6 @@ class VanillaVAE(nn.Module):
             nn.ReLU(True)
         )
 
-    # input.shape = (512, 1, 28, 28)
-
     def encode(self, input: Tensor) -> List[Tensor]:
         """
         Encodes the input by passing through the encoder network
@@ -128,13 +133,13 @@ class VanillaVAE(nn.Module):
         :param input: (Tensor) Input tensor to encoder [N x C x H x W]
         :return: (Tensor) List of latent codes
         """
-        result = self.encoder_cnn(input)
-        result = self.flatten(result)
+        result = self.encoder_cnn(input)  
+        # out: [b x 32 x 3 x 3] = b x c x h x w
 
         # Split the result into mu and var components
         # of the latent Gaussian distribution
-        mu = self.fc_mu(result)
-        log_var = self.fc_var(result)
+        mu = self.cnn_mu(result) # out: [b x latent_dim x 3 x 3]
+        log_var = self.cnn_var(result)
 
         return [mu, log_var]
 
@@ -145,9 +150,9 @@ class VanillaVAE(nn.Module):
         :param z: (Tensor) [B x D]
         :return: (Tensor) [B x C x H x W]
         """
-        x = self.decoder_lin(z)
-        x = self.unflatten(x)
-        x = self.decoder_cnn(x)
+        # x = self.decoder_lin(z)
+        # x = self.unflatten(x)
+        x = self.decoder_cnn(z)
         x = torch.sigmoid(x)
         return x
 
@@ -161,14 +166,14 @@ class VanillaVAE(nn.Module):
         """
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        return eps * std + mu
+        return eps * std + mu # originally: (batch, latent_dim), now: (batch, latent_dim, 3, 3)
 
     def forward(self, input: Tensor) -> List[Tensor]:
         mu, log_var = self.encode(input)
-        z = self.reparameterize(mu, log_var)
+        z = self.reparameterize(mu, log_var) # (batch, latent_dim, 3, 3)
         return [self.decode(z), input, mu, log_var]
 
-    def loss_function(self, recons, input, mu, log_var, kld_weight=0.0025 ) -> List[Tensor]:
+    def loss_function(self, recons, input, mu, log_var, kld_weight=0.0025) -> List[Tensor]:
         """
         Computes the VAE loss function.
         KL(N(\mu, \sigma), N(0, 1)) = \log \frac{1}{\sigma} + \frac{\sigma^2 + \mu^2}{2} - \frac{1}{2}
@@ -183,7 +188,8 @@ class VanillaVAE(nn.Module):
         kld_loss = torch.mean(-0.5 * torch.sum(1 +
                               log_var - mu ** 2 - log_var.exp(), dim=1), dim=0)
 
-        loss = recons_loss + kld_weight * kld_loss
+        loss = recons_loss + kld_weight * kld_loss # shape: (3, 3)
+        loss = loss.mean() # shape: (1)
         return [loss, recons_loss.detach(), -kld_loss.detach()]
 
     def sample(self,
@@ -213,6 +219,20 @@ class VanillaVAE(nn.Module):
 
         return self.forward(x)[0]
 
+
+# inputs, labels = data
+# inputs = torch.rand(33, 1, 28, 28)
+# inputs = inputs.to('cuda')
+# model = VanillaVAE(latent_dim=10, in_channels=1).to('cuda')
+# # mu, log_var = model.encode(inputs)
+
+# outputs, inputs, mu, log_var = model(inputs)
+# print(f"outputs: {outputs.shape}")
+# print(mu.shape)
+# print(log_var.shape)
+
+
+# %%
 
 def train(model: VanillaVAE, train_loader, val_loader, learning_rate, nb_epochs, device):
     model.train()

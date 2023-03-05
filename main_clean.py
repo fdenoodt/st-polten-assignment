@@ -61,7 +61,7 @@ def visualise_output(images, model, device, name, save=True):
             images[1:50], 10, 5).numpy()
         plt.imshow(np.transpose(np_imagegrid, (1, 2, 0)))
         if save:
-            plt.savefig(f"{log_path}/reconstructed_img_{name}.png")
+            plt.savefig(f"{name}")
         plt.show()
 
 
