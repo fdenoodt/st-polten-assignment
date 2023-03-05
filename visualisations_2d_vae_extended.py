@@ -5,11 +5,9 @@ import torchvision.transforms as transforms
 import torchvision.utils
 import torchvision.transforms as transforms
 import torchvision.datasets as dataset
-from main_clean import Autoencoder, visualise_output, show_image
+from main_explicit_vae import visualise_output, show_image
 import numpy as np
-from architectures import Autoencoder, Encoder, Decoder
-
-# %%
+from architectures_vae_explicit import VariationalAutoencoder
 
 if __name__ == '__main__':
     if torch.cuda.is_available():
@@ -17,7 +15,7 @@ if __name__ == '__main__':
     else:
         device = 'cpu'
 
-    logs_path = "logs/"
+    logs_path = "vae_explicit_logs/"
 
     batch_size =128 * 2 * 2 * 2 # 1024
     mnist_val = dataset.MNIST(
@@ -32,11 +30,10 @@ if __name__ == '__main__':
 
     # Define your model
     latent_dim = 2
-    model = Autoencoder(latent_dim).to(device)
+    model = VariationalAutoencoder(latent_dim).to(device)
 
     # Load the saved model
-    model.load_state_dict(torch.load(f'{logs_path}/model_latent_dims_{latent_dim}.pt'))
-    # model.load_state_dict(torch.load(f'model_latent_dims_{latent_dim}.pt'))
+    model.load_state_dict(torch.load(f'{logs_path}/vae_model_latent_dims_{latent_dim}.pt'))
     model.eval()
 
     images, labels = next(iter(val_loader))
@@ -51,8 +48,9 @@ if __name__ == '__main__':
 
     # %%
 
-    encoder = Encoder(latent_dim).to(device)
-    encoder.load_state_dict(torch.load(f'{logs_path}/model_latent_dims_{latent_dim}.pt'))
+    # encoder = VariationalEncoder(latent_dim).to(device)
+    # encoder.load_state_dict(torch.load(f'{logs_path}/model_latent_dims_{latent_dim}.pt'))
+    encoder = model.encoder
     encoder.eval()
     # Obtain the hidden representation
     hidden_representations = encoder(images)
@@ -93,25 +91,22 @@ if __name__ == '__main__':
 
 
     # %%
-
-    decoder = Decoder(latent_dim).to(device)
-    decoder.load_state_dict(torch.load(f'{logs_path}/model_latent_dims_{latent_dim}.pt'))
+    decoder = model.decoder
+    # decoder = Decoder(latent_dim).to(device)
+    # decoder.load_state_dict(torch.load(f'{logs_path}/model_latent_dims_{latent_dim}.pt'))
     decoder.eval()
 
     encs = torch.randn(1, latent_dim).to(device)
     # (4, 3)
-    encs[0][0] = 3.5
-    encs[0][0] = 3
+    # encs[0][0] = 4
+    # encs[0][0] = 3
 
-    # encs[0][0] = -.09
-    # encs[0][0] = -3
+    encs[0][0] = -.09
+    encs[0][0] = -3
 
 
     imgs = decoder(encs)
 
     show_image(imgs[0], 'Generated Image', save=False)
 
-    # %%
-
-
-
+# %%

@@ -24,15 +24,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.datasets as dataset
 import os
-from architectures import Autoencoder
+from architectures_vae_explicit import VariationalAutoencoder
 
 import random
 random.seed(42)
 
-log_path = "logs/"
+log_path = "vae_explicit_logs/"
 
 
-# %%
 
 # code strongly based on:
 # https://colab.research.google.com/github/smartgeometry-ucl/dl4g/blob/master/autoencoder.ipynb#scrollTo=ztYkaqtAr_VZ
@@ -53,8 +52,7 @@ def visualise_output(images, model, device, name, save=True):
     print('Autoencoder reconstruction:')
     with torch.no_grad():
         images = images.to(device)
-        images, _, _, _ = model(images)
-        
+        images, z, mu, std = model(images)
         images = images.cpu()
         # images = to_img(images)
         np_imagegrid = torchvision.utils.make_grid(
@@ -63,7 +61,6 @@ def visualise_output(images, model, device, name, save=True):
         if save:
             plt.savefig(f"{log_path}/reconstructed_img_{name}.png")
         plt.show()
-
 
 
 def plot_losses(train_loss, val_loss, name, save=True):
@@ -78,25 +75,25 @@ def plot_losses(train_loss, val_loss, name, save=True):
     if save:
         plt.savefig(f"{log_path}/loss_{name}.png")
 
-
     plt.show()
 
 
 
 
-# %%
 
 
-def train(model: Autoencoder, train_loader, val_loader, learning_rate, nb_epochs, device):
+def train(model: VariationalAutoencoder, train_loader, val_loader, learning_rate, nb_epochs, device):
     model.train()
     criterion = nn.MSELoss()
 
     # optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
-    optimizer = torch.optim.Adam(
-        params=model.parameters(),
-        lr=learning_rate,
-        weight_decay=1e-5
-        )
+    # optimizer = torch.optim.Adam(
+    #     params=model.parameters(),
+    #     lr=learning_rate,
+    #     weight_decay=1e-5
+    #     )
+
+    optimizer = torch.optim.Adam(model.parameters())
 
     train_losses = []
     val_losses = []
@@ -106,11 +103,19 @@ def train(model: Autoencoder, train_loader, val_loader, learning_rate, nb_epochs
 
         for i, data in enumerate(train_loader, 0):
             inputs, labels = data
-
             inputs = inputs.to(device)
-            outputs = model(inputs)
+            outputs, z, mu, std = model(inputs)
+            
+            # reconstruction loss
+            recon_loss = model.gaussian_likelihood(outputs, model.log_scale, inputs)
 
-            loss = criterion(outputs, inputs)
+            # kl
+            kl = model.kl_divergence(z, mu, std)
+
+            # elbo
+            elbo = (kl - recon_loss)
+            elbo = elbo.mean()
+            loss = elbo
 
             # backpropagation
             optimizer.zero_grad()
@@ -130,19 +135,33 @@ def train(model: Autoencoder, train_loader, val_loader, learning_rate, nb_epochs
             for i, data in enumerate(val_loader, 0):
                 inputs, labels = data
                 inputs = inputs.to(device)
-                outputs = model(inputs)
-                loss = criterion(outputs, inputs)
+                outputs, z, mu, std = model(inputs)
+                
+                # loss = criterion(outputs, inputs)
+                # loss = ((inputs - outputs)**2).sum() + model.encoder.kl
+
+                # reconstruction loss
+                recon_loss = model.gaussian_likelihood(outputs, model.log_scale, inputs)
+
+                # kl
+                kl = model.kl_divergence(z, mu, std)
+
+                # elbo
+                elbo = (kl - recon_loss)
+                elbo = elbo.mean()
+                loss = elbo
+
                 val_loss += loss.item()
 
         model.train()
         val_losses.append(val_loss / len(val_loader))
 
-        print(f'Latent dimensions: {model.latent_dims} -  Epoch: {e + 1}/{nb_epochs} - Loss: {running_loss / len(train_loader)}')
+        print(f'Latent dimensions: {model.latent_dim} -  Epoch: {e + 1}/{nb_epochs} - Loss: {running_loss / len(train_loader)}')
 
     # </> end all epochs
 
-    plot_losses(train_losses, val_losses, name=f'latent_dims_{model.latent_dims}')
-    torch.save(model.state_dict(), f'{log_path}/model_latent_dims_{model.latent_dims}.pt')
+    plot_losses(train_losses, val_losses, name=f'latent_dims_{model.latent_dim}')
+    torch.save(model.state_dict(), f'{log_path}/vae_model_latent_dims_{model.latent_dim}.pt')
     return model
 
 
@@ -152,7 +171,7 @@ if __name__ == '__main__':
     else:
         device = 'cpu'
 
-    batch_size = 128 * 2 * 2 # 512
+    batch_size = 128 * 2 * 2 * 2 # 1024
     mnist_train = dataset.MNIST(
         "./", train=True,
         transform=transforms.ToTensor(),
@@ -174,12 +193,13 @@ if __name__ == '__main__':
 
    
 
-    for latent_dim in [2, 5, 10, 20, 50, 100]:
+    for latent_dim in [2, 10]:
+    # for latent_dim in [2, 5, 10, 20, 50, 100]:
 
-        num_epochs = 50
+        num_epochs = 100
         learning_rate = 1e-3  # = 0.001
 
-        model = Autoencoder(latent_dim).to(device)
+        model = VariationalAutoencoder(latent_dim).to(device)
         model = train(
             model,
             train_loader,

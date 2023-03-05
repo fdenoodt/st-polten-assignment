@@ -178,7 +178,7 @@ if __name__ == '__main__':
     for latent_dim in [2, 10]:
     # for latent_dim in [2, 5, 10, 20, 50, 100]:
 
-        num_epochs = 20
+        num_epochs = 3
         learning_rate = 1e-3  # = 0.001
 
         model = VariationalAutoencoder(latent_dim).to(device)

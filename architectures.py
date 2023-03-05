@@ -10,30 +10,22 @@ class Autoencoder(nn.Module):
         self.latent_dims = latent_dims
 
         # Encoder block
-        self.conv1 = nn.Conv2d(
-            in_channels=1, out_channels=self.c, kernel_size=3, stride=2, padding=1)
-        self.conv2 = nn.Conv2d(
-            in_channels=self.c, out_channels=self.c, kernel_size=3, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(
-            in_channels=self.c, out_channels=self.c, kernel_size=3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(
-            in_channels=self.c, out_channels=self.c, kernel_size=3, stride=1, padding=1)
+        # output_height = ([input_height - kernel_size + (2*padding)] / stride) + 1
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=self.c, kernel_size=3, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=self.c, out_channels=self.c, kernel_size=3, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(in_channels=self.c, out_channels=self.c, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(in_channels=self.c, out_channels=self.c, kernel_size=3, stride=1, padding=1)
 
-        self.fc = nn.Linear(in_features=self.c*7*7,
-                            out_features=latent_dims)  # c*2*7*7
+        self.fc = nn.Linear(in_features=self.c*7*7, out_features=latent_dims)  # c*2*7*7
 
         # Decoder block
-        self.fc_dec = nn.Linear(in_features=latent_dims,
-                                out_features=self.c * 7 * 7)
+        self.fc_dec = nn.Linear(in_features=latent_dims, out_features=self.c * 7 * 7)
 
-        self.trans_conv5 = nn.ConvTranspose2d(
-            in_channels=self.c, out_channels=self.c, kernel_size=3, stride=2, padding=1)
-        self.trans_conv6 = nn.ConvTranspose2d(
-            in_channels=self.c, out_channels=self.c, kernel_size=3, stride=2, padding=1)
-        self.trans_conv7 = nn.ConvTranspose2d(
-            in_channels=self.c, out_channels=self.c, kernel_size=3, stride=2, padding=1)
-        self.trans_conv8 = nn.Conv2d(
-            in_channels=self.c, out_channels=1, kernel_size=3, stride=2, padding=4)
+        # output_height = [(input_height - 1) * stride] + kernel_size[0] - [2 * padding] + output_padding
+        self.trans_conv5 = nn.ConvTranspose2d(in_channels=self.c, out_channels=self.c, kernel_size=3, stride=2, padding=1)
+        self.trans_conv6 = nn.ConvTranspose2d(in_channels=self.c, out_channels=self.c, kernel_size=3, stride=2, padding=1)
+        self.trans_conv7 = nn.ConvTranspose2d(in_channels=self.c, out_channels=self.c, kernel_size=3, stride=2, padding=1)
+        self.trans_conv8 = nn.Conv2d(in_channels=self.c, out_channels=1, kernel_size=3, stride=2, padding=4)
 
     def forward(self, x):  # (b, 1, 28, 28)
         x1 = F.relu(self.conv1(x))
